@@ -1,80 +1,87 @@
 const { analyzeBurn, analyzeSatiety, analyzeSentinel, analyzeGlycemic } = require('./SubAgents');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+// Initialize Gemini if API Key is present
+const genAI = process.env.GOOGLE_API_KEY ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
+const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
 
 class LiaisonAgent {
-    static processQuery(query, profileData = {}) {
+    static async processQuery(query, profileData = {}) {
         const burnData = analyzeBurn(query);
         const satietyData = analyzeSatiety(query);
         const sentinelData = analyzeSentinel(query);
         const glycemicData = analyzeGlycemic(query);
 
         const { weight, stress, meal, upcomingMeal } = profileData;
-        const lowerQuery = query.toLowerCase();
 
-        // Structured Conversational Synthesis
-        let summary = `## Deep Insight: "${query}"\n\n`;
+        // If we have a real API Key, let Gemini synthesize the Council's findings
+        if (model) {
+            try {
+                const prompt = `
+                    You are AURA (AI-Unified Regional Alchemist), a hyper-personalized nutrition bot.
+                    
+                    USER DATA:
+                    - Query: "${query}"
+                    - Weight: ${weight || 'Unknown'}kg
+                    - Stress Level: ${stress || 5}/10
+                    - Current Meal: "${meal || 'None'}"
+                    - Upcoming Meal: "${upcomingMeal || 'None'}"
+                    
+                    COUNCIL AGENT DATA:
+                    - Burn Analysis: ${burnData.trace} (Score: ${burnData.score})
+                    - Neural Analysis: ${satietyData.trace}
+                    - Safety Status: ${sentinelData.trace}
+                    - Glycemic Status: ${glycemicData.trace}
+                    
+                    TASK:
+                    Generate a deep metabolic insight report in Markdown. 
+                    1. Review the query based on the user's weight and stress.
+                    2. Audit the Current and Upcoming meals. Specifically check for fast food and suggest alterations/recipe tips.
+                    3. Incorporate sourced research-style insights.
+                    4. Keep it concise, professional, and helpful.
+                `;
 
-        // Category-Specific "Sourced Information" Simulation
-        if (lowerQuery.includes('fat loss')) {
-            summary += `### 🔍 Sourced Research: Lipolysis Optimization\n` +
-                       `Studies suggest that at a bodyweight of **${weight || 70}kg**, a caloric deficit of 20% combined with high-intensity intervals improves mitochondrial density. Your stress level of **${stress || 5}/10** is critical here; high cortisol can halt fat oxidation. \n\n` +
-                       `**Pro Tip:** Drink 500ml of cold water before breakfast to induce mild thermogenesis.\n\n`;
-        } else if (lowerQuery.includes('muscle building')) {
-            summary += `### 🔍 Sourced Research: Anabolic Hypertrophy\n` +
-                       `For optimal protein synthesis, aim for 1.8g of protein per kg of bodyweight. At **${weight || 70}kg**, that's roughly **${Math.round((weight || 70) * 1.8)}g/day**. Ensure your upcoming meal contains at least 30g of leucine-rich protein.\n\n` +
-                       `**Pro Tip:** Timing your carbohydrate intake around your training window is more important than total daily carbs.\n\n`;
-        } else if (lowerQuery.includes('sugar control') || lowerQuery.includes('glycemic')) {
-            summary += `### 🔍 Sourced Research: Insulin Sensitivity\n` +
-                       `Continuous Glucose Monitor (CGM) data indicates that starting meals with fiber (vinegar-based dressing) can reduce the subsequent glucose spike by up to 30%. Given your stress level, your baseline fasting insulin may be elevated.\n\n` +
-                       `**Pro Tip:** A 10-minute walk after your "${meal || 'next meal'}" will significantly flatten the insulin curve.\n\n`;
-        } else if (lowerQuery.includes('energy') || lowerQuery.includes('boost')) {
-            summary += `### 🔍 Sourced Research: ATP Production\n` +
-                       `ATP (Adenosine Triphosphate) production relies heavily on magnesium and B-vitamins. If you are feeling low energy, check your electrolyte balance. \n\n` +
-                       `**Pro Tip:** Opt for complex carbohydrates over simple sugars to avoid the post-spike energy crash.\n\n`;
+                const result = await model.generateContent(prompt);
+                const response = await result.response;
+                return {
+                    liaisonTrace: "Gemini Synthesis Complete.",
+                    executiveSummary: response.text(),
+                    subAgents: { BURN: burnData, SATIETY: satietyData, SENTINEL: sentinelData, GLYCEMIC: glycemicData }
+                };
+            } catch (error) {
+                console.error("Gemini Error:", error);
+                // Fallback to internal logic on API failure
+            }
         }
 
-        summary += `### Council Analysis:\n` +
-                   `- **Metabolic Analysis:** ${burnData.trace}\n` +
-                   `- **Neural Insight:** ${satietyData.trace}\n` +
-                   `- **Safety Status:** ${sentinelData.trace}\n\n`;
+        // FALLBACK: Internal Hardcoded Logic (Existing)
+        const lowerQuery = query.toLowerCase();
+        let summary = `## Deep Insight: "${query}"\n\n`;
 
-        // Meal Auditing Logic
-        const fastFoodKeywords = ['burger', 'fries', 'pizza', 'fried', 'cola', 'soda', 'taco', 'kfc', 'mcdonald'];
+        if (lowerQuery.includes('fat loss')) {
+            summary += `### 🔍 Sourced Research: Lipolysis Optimization\n` +
+                       `Studies suggest that at a bodyweight of **${weight || 70}kg**, a caloric deficit of 20% improves mitochondrial density. Your stress level of **${stress || 5}/10** is critical here; high cortisol can halt fat oxidation. \n\n`;
+        } else if (lowerQuery.includes('muscle building')) {
+            summary += `### 🔍 Sourced Research: Anabolic Hypertrophy\n` +
+                       `At **${weight || 70}kg**, aim for roughly **${Math.round((weight || 70) * 1.8)}g/day** of protein.\n\n`;
+        }
+
         const auditMeal = (mealText, label) => {
             if (!mealText) return "";
-            const isFastFood = fastFoodKeywords.some(k => mealText.toLowerCase().includes(k));
-            let advice = `#### ${label}: "${mealText}"\n`;
-            
-            if (isFastFood) {
-                advice += `⚠️ **Fast Food Review:** \n` +
-                          `*   **Alteration:** Swap the bun for a lettuce wrap.\n` +
-                          `*   **Recipe Hack:** Add a handful of walnuts to this to improve the fat profile.\n`;
-            } else {
-                advice += `✅ **Healthy Food Review:** \n` +
-                          `*   **Optimization:** Add fresh turmeric to increase antioxidant capacity.\n`;
-            }
-            return advice + "\n";
+            const isFastFood = ['burger', 'fries', 'pizza', 'fried'].some(k => mealText.toLowerCase().includes(k));
+            return `#### ${label}: "${mealText}"\n` + (isFastFood ? `⚠️ **Fast Food Review:** Swap the bun for a lettuce wrap.\n` : `✅ **Healthy Food Review:** Add turmeric for antioxidants.\n`) + "\n";
         };
 
         if (meal || upcomingMeal) {
-            summary += `### Personal Meal Audit:\n`;
-            summary += auditMeal(meal, "Current Meal");
-            summary += auditMeal(upcomingMeal, "Upcoming Meal");
+            summary += `### Personal Meal Audit:\n` + auditMeal(meal, "Current Meal") + auditMeal(upcomingMeal, "Upcoming Meal");
         }
 
-        summary += `### Final Strategy Tips:\n` +
-                   `1. **Thermogenic:** ${burnData.suggestions[0]}.\n` +
-                   `2. **Buffer:** ${glycemicData.buffers[0]}.\n` +
-                   `3. **Swap:** ${satietyData.neuroSwaps[0]}.\n\n`;
+        summary += `### Strategy Tips:\n1. **Thermogenic:** ${burnData.suggestions[0]}.\n2. **Buffer:** ${glycemicData.buffers[0]}.\n`;
 
         return {
-            liaisonTrace: "Multi-sourced protocol synthesis complete.",
+            liaisonTrace: "Internal Protocol synthesis complete.",
             executiveSummary: summary,
-            subAgents: {
-                BURN: burnData,
-                SATIETY: satietyData,
-                SENTINEL: sentinelData,
-                GLYCEMIC: glycemicData
-            }
+            subAgents: { BURN: burnData, SATIETY: satietyData, SENTINEL: sentinelData, GLYCEMIC: glycemicData }
         };
     }
 }

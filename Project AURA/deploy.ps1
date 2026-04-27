@@ -4,7 +4,8 @@
 param (
     [string]$ProjectID = $(Read-Host -Prompt "Enter your GCP Project ID"),
     [string]$Region = "us-central1",
-    [string]$ServiceName = "project-aura"
+    [string]$ServiceName = "project-aura",
+    [string]$GoogleApiKey = $(Read-Host -Prompt "Enter your Google AI API Key (Leave blank to use mock AI)")
 )
 
 if (-not $ProjectID) {
@@ -24,12 +25,18 @@ gcloud builds submit --tag gcr.io/$ProjectID/$ServiceName --project=$ProjectID
 
 # 3. Deploy to Cloud Run
 Write-Host "Deploying image to Cloud Run..."
+$envVars = "PORT=8080"
+if ($GoogleApiKey) {
+    $envVars += ",GOOGLE_API_KEY=$GoogleApiKey"
+}
+
 gcloud run deploy $ServiceName `
     --image gcr.io/$ProjectID/$ServiceName `
     --platform managed `
     --region $Region `
     --allow-unauthenticated `
-    --project $ProjectID
+    --project $ProjectID `
+    --set-env-vars $envVars
 
 Write-Host "Deployment Complete!" -ForegroundColor Green
 $ServiceUrl = gcloud run services describe $ServiceName --platform managed --region $Region --format="value(status.url)" --project=$ProjectID

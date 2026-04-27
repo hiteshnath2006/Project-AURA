@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { securityMiddleware } = require('./middleware/security');
@@ -11,10 +12,10 @@ app.use(cors());
 app.use(express.json());
 
 // API Route for Agent Processing
-app.post('/api/analyze', securityMiddleware, (req, res) => {
+app.post('/api/analyze', securityMiddleware, async (req, res) => {
     try {
         const { scrubbedQuery, profileData } = req.body;
-        const result = LiaisonAgent.processQuery(scrubbedQuery, profileData);
+        const result = await LiaisonAgent.processQuery(scrubbedQuery, profileData);
         res.json(result);
     } catch (error) {
         console.error("Agent Processing Error:", error);
