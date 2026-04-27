@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Local Node Binary/Archives
+node-v20.12.2-win-x64/
+node.zip
+
+# Build outputs
+frontend/dist/
+
+# Env files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db

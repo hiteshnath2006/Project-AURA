@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Fira+Code:wght@400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cyber-light text-cyber-text font-sans;
+    background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08), transparent 60%),
+                      radial-gradient(circle at 50% 100%, rgba(139, 92, 246, 0.08), transparent 60%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-lg border border-gray-200/50 shadow-lg rounded-2xl;
+  }
+  
+  .glass-panel-emerald {
+    @apply bg-emerald-50/80 backdrop-blur-lg border border-emerald-200 shadow-lg rounded-2xl;
+  }
+
+  .glass-panel-amber {
+    @apply bg-amber-50/80 backdrop-blur-lg border border-amber-200 shadow-lg rounded-2xl;
+  }
+
+  .glass-panel-violet {
+    @apply bg-violet-50/80 backdrop-blur-lg border border-violet-200 shadow-lg rounded-2xl;
+  }
+
+  .neon-text-emerald {
+    text-shadow: 0 0 10px rgba(16,185,129,0.7);
+  }
+}
